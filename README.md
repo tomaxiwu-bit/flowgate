@@ -57,8 +57,8 @@ flowgate/
 │   │   ├── core/           # 配置
 │   │   ├── services/       # FlowKit 业务封装（解析、补偿、缓存、门控评估）
 │   │   └── models/         # Pydantic 数据模型
-│   ├── scripts/            # 工具脚本（probe_flowkit_api.py 等）
-│   └── tests/              # pytest 测试（30 项）
+│   ├── scripts/            # 工具脚本（e2e_check.py、verify_fcs.py 等）
+│   └── tests/              # pytest 测试（37 项，覆盖率 89%）
 ├── frontend/               # Next.js 前端
 │   └── components/         # ScatterPlot 等自研组件
 ├── examples/fcs/           # 公开测试 FCS 样本（FlowKit 官方 8 色数据集，含 $SPILLOVER）
@@ -133,7 +133,18 @@ npm run dev     # 默认 http://localhost:3000
 - GatingML 坐标基于补偿线性空间：若目标软件对同一文件应用了不同的补偿/变换，
   门坐标可能不重合，建议以"门模板"方式使用而非依赖自动对齐。
 - Logicle 为查看模式，暂不支持在其空间内直接画门。
+- GatingML 导入会拒绝含 DOCTYPE 的文档（XXE 防护）；畸形 XML 返回 400。
 - 服务无鉴权、无上传文件自动清理：**请勿公网部署**（详见顶部警告）。
+
+## 一键部署（Docker）
+
+```powershell
+docker compose up --build
+# 前端 http://localhost:3000 · 后端 http://localhost:8000
+```
+
+数据持久化在 `flowgate-data` 卷（uploads / gates）。CI（.github/workflows/ci.yml）
+在每次 push 时运行后端测试（覆盖率门槛 85%）与前端类型检查/构建。
 
 ## 开发排期（MVP，8 周）
 
@@ -145,6 +156,7 @@ npm run dev     # 默认 http://localhost:3000
 | 7 | 统计导出 + GatingML 2.0 互操作 | ✅ 完成 |
 | 8 | 测试、文档、部署、README | ✅ 完成 |
 | 9 | 荧光补偿 + Logicle 显示 + 安全加固 | ✅ 完成 |
+| 10 | CI、Docker、覆盖率门槛、XXE 加固、git 版本控制 | ✅ 完成 |
 
 ## License
 

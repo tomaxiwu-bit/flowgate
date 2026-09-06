@@ -198,3 +198,99 @@ class TestSecurity:
         monkeypatch.setattr(flowkit, "Sample", lambda *a, **k: FakeSample())
         with pytest.raises(fcs_service.FcsParseError, match="超过上限"):
             fcs_service.parse_fcs_file(pathlib.Path("fake.fcs"), "fake.fcs")
+
+
+class TestXxe:
+    """P2-6：GatingML 导入的 XXE 与畸形 XML 防护。"""
+
+    _DOCTYPE_PAYLOAD = b"""<?xml version="1.0"?>
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///C:/Windows/win.ini">]>
+<gating:Gating-ML xmlns:gating="http://www.isac-net.org/std/Gating-ML/v2.0/gating">
+  <gating:RectangleGate gating:id="&xxe;">
+    <gating:dimension gating:min="0.0" gating:max="100.0"><data-type:fcs-dimension data-type:name="FSC-A"/></gating:dimension>
+    <gating:dimension gating:min="0.0" gating:max="100.0"><data-type:fcs-dimension data-type:name="SSC-A"/></gating:dimension>
+  </gating:RectangleGate>
+</gating:Gating-ML>"""
+
+    def test_import_doctype_rejected(self, client: TestClient, file_id: str):
+        resp = client.post(
+            f"/api/files/{file_id}/gatingml/import",
+            files={"file": ("evil.xml", self._DOCTYPE_PAYLOAD, "application/xml")},
+        )
+        assert resp.status_code == 400
+        assert "DOCTYPE" in resp.json()["detail"]
+
+    def test_import_malformed_xml_returns_400(self, client: TestClient, file_id: str):
+        resp = client.post(
+            f"/api/files/{file_id}/gatingml/import",
+            files={"file": ("broken.xml", b"<not-xml", "application/xml")},
+        )
+        assert resp.status_code == 400
+
+
+class TestSpilloverEdge:
+    """补偿提取的边界分支。"""
+
+    def test_attach_compensation_no_spillover_returns_false(self):
+        class FakeSample:
+            def get_metadata(self):
+                return {}
+
+        assert fcs_service.attach_compensation(FakeSample()) is False
+
+    def test_extract_spillover_lowercase_key(self):
+        class FakeSample:
+            def get_metadata(self):
+                return {"spillover": "2,A,B,1,0.1,0.2,1"}
+
+        assert fcs_service.extract_spillover(FakeSample()) == "2,A,B,1,0.1,0.2,1"
+
+    def test_extract_spillover_none_metadata(self):
+        class FakeSample:
+            def get_metadata(self):
+                return None
+
+        assert fcs_service.extract_spillover(FakeSample()) is None
+
+    def test_attach_compensation_bad_spill_text_returns_false(self):
+        """畸形 spillover 文本（detector 数与声明不符）不抛异常。"""
+
+        class FakeSample:
+            def get_metadata(self):
+                return {"$SPILLOVER": "3,A,B,1,0.1"}
+
+        assert fcs_service.attach_compensation(FakeSample()) is False
+
+    def test_duplicate_gate_names_deduplicated_on_export(self, client: TestClient, file_id: str):
+        """GatingML 要求门 ID 全局唯一，重名导出应加后缀。"""
+        payload = {
+            "gates": [
+                {
+                    "id": "a1",
+                    "name": "同名门",
+                    "type": "rect",
+                    "x_label": "FSC-A",
+                    "y_label": "SSC-A",
+                    "x_min": 1,
+                    "x_max": 2,
+                    "y_min": 1,
+                    "y_max": 2,
+                    "parent_id": None,
+                },
+                {
+                    "id": "a2",
+                    "name": "同名门",
+                    "type": "rect",
+                    "x_label": "FSC-A",
+                    "y_label": "SSC-A",
+                    "x_min": 3,
+                    "x_max": 4,
+                    "y_min": 3,
+                    "y_max": 4,
+                    "parent_id": None,
+                },
+            ]
+        }
+        assert client.put(f"/api/files/{file_id}/gates", json=payload).status_code == 200
+        xml = client.get(f"/api/files/{file_id}/gatingml").text
+        assert "同名门" in xml and "同名门-2" in xml

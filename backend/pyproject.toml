@@ -18,11 +18,16 @@ dev = [
     "pytest>=8.0",
     "httpx>=0.27",
     "ruff>=0.4",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv]
 # 使用 uv 管理的 Python 3.12，避免系统 Python 3.14 与 FlowKit 依赖不兼容
 python-preference = "only-managed"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

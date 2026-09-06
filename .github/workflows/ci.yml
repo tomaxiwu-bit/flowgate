@@ -18,8 +18,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync
-      - name: Run pytest
-        run: uv run pytest -q
+      - name: Run pytest with coverage gate
+        run: uv run pytest -q --cov=app --cov-fail-under=85
 
   frontend:
     name: Frontend typecheck & build

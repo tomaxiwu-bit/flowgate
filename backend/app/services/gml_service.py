@@ -122,9 +122,14 @@ def import_gatingml_xml(xml_bytes: bytes) -> GatesPayload:
     仅支持矩形/多边形门；其他类型（布尔门、象限门等）会被跳过，
     门名作为显示名保留，内部 id 重新生成。
     """
+    # XXE 防御纵深：显式拒绝含 DOCTYPE 的文档（不依赖解析器的默认行为）
+    if b"<!DOCTYPE" in xml_bytes[:4096].upper():
+        raise ValueError("检测到 DOCTYPE 声明，已拒绝（XXE 防护）")
+
     try:
         strategy = parse_gating_xml(io.BytesIO(xml_bytes))
-    except ValueError as exc:
+    except Exception as exc:
+        # XMLSyntaxError 等解析异常统一转业务错误（返回 400 而非 500）
         raise ValueError(f"GatingML 文件无法解析: {exc}") from exc
 
     gates: list[GateDef] = []
