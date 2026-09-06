@@ -36,3 +36,5 @@ backend/gates/
 # 系统
 Thumbs.db
 .DS_Store
+
+*.log
