@@ -167,7 +167,13 @@ docker compose up --build
 | 8 | 测试、文档、部署、README | ✅ 完成 |
 | 9 | 荧光补偿 + Logicle 显示 + 安全加固 | ✅ 完成 |
 | 10 | CI、Docker、覆盖率门槛、XXE 加固、git 版本控制 | ✅ 完成 |
-| 11 | 审计修复：缓存 LRU、DELETE API、补偿自包含导出、补偿降级告警、gating:id NCName、XXE forbid_dtd、荧光通道 E2E、Docker 远程部署 | ✅ 完成 |
+| 11 | 审计修复：缓存 LRU、DELETE API、补偿自包含导出、补偿降级告警、gating:id NCName、XXE 防护、荧光通道 E2E、Docker 远程部署 | ✅ 完成 |
+
+## 发布路线（下一步）
+
+- **上线在线 Demo**（免费，约 10 分钟）：[docs/DEPLOY_HUGGINGFACE_SPACES.md](./docs/DEPLOY_HUGGINGFACE_SPACES.md)
+- **给上游 FlowKit 提 issue**（提升简历可写性）：[docs/FLOWKIT_ISSUE_DRAFT.md](./docs/FLOWKIT_ISSUE_DRAFT.md)
+- 推 GitHub 后把仓库地址填进本 README 顶部与简历
 
 ## License
 
