@@ -1,0 +1,32 @@
+:root {
+  --text: #1a1b1c;
+  --text-secondary: #4a4d52;
+  --bg: #f4f3ee;
+  --card: #ffffff;
+  --border: #e4e3dd;
+  --accent: #5b8ff9;
+  --accent-soft: rgba(91, 143, 249, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Roboto", "PingFang SC", "Segoe UI", Arial, sans-serif;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

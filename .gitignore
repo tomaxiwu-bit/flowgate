@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+uv.lock.bak
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# 环境与编辑器
+.env
+.env.local
+.env.*.local
+.idea/
+.vscode/
+*.swp
+
+# 上传的临时数据
+backend/uploads/
+backend/tmp/
+backend/gates/
+*.fcs
+!examples/**/*.fcs
+
+# 系统
+Thumbs.db
+.DS_Store

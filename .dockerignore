@@ -1,0 +1,15 @@
+# 排除进入 Docker 构建上下文的文件/目录
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.git
+backend/uploads
+backend/gates
+backend/tests
+backend/scripts/e2e_check.py
+frontend/.next
+*.pyc
+*.tsbuildinfo
+.env*

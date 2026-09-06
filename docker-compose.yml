@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - flowgate-data:/data
+    environment:
+      - FLOWGATE_UPLOAD_DIR=/data/uploads
+      - FLOWGATE_GATES_DIR=/data/gates
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  flowgate-data:
