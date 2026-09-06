@@ -1,4 +1,4 @@
-"""FCS 文件上传与元信息路由。"""
+"""FCS 文件上传、元信息与删除路由。"""
 
 import shutil
 import uuid
@@ -9,11 +9,13 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.core.config import get_settings
 from app.models.schemas import ApiError, FcsSummary, FileUploadResponse
 from app.services.fcs_service import FcsParseError, parse_fcs_file
-from app.services.sample_cache import get_sample, _resolve_fcs_path
+from app.services.sample_cache import drop_sample, get_sample, _resolve_fcs_path
 
 router = APIRouter(tags=["files"])
 
 _ALLOWED_EXTENSIONS = {".fcs"}
+
+_CHUNK_SIZE = 1024 * 1024  # 1 MB 流式写入分块
 
 
 @router.get(
@@ -43,6 +45,7 @@ async def upload_fcs(file: UploadFile = File(...)) -> FileUploadResponse:
     """上传并解析一个 FCS 文件。
 
     校验扩展名与大小后保存到临时目录，用 FlowKit 解析并返回摘要。
+    流式写入磁盘：内存峰值仅一个分块（1MB），大文件不会被全量读入内存。
     """
     settings = get_settings()
 
@@ -51,23 +54,32 @@ async def upload_fcs(file: UploadFile = File(...)) -> FileUploadResponse:
     if ext not in _ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"仅支持 FCS 文件，收到扩展名 {ext!r}")
 
-    # 流式写入，避免大文件直接读入内存
-    content = await file.read()
-    if len(content) > settings.max_upload_mb * 1024 * 1024:
-        raise HTTPException(
-            status_code=413,
-            detail=f"文件超过大小上限 {settings.max_upload_mb} MB",
-        )
-
     file_id = uuid.uuid4().hex
     dest_dir = settings.upload_dir / file_id
     dest_dir.mkdir(parents=True, exist_ok=False)
     dest_path = dest_dir / original_name
 
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    size = 0
     try:
-        dest_path.write_bytes(content)
+        with dest_path.open("wb") as fh:
+            while True:
+                chunk = await file.read(_CHUNK_SIZE)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"文件超过大小上限 {settings.max_upload_mb} MB",
+                    )
+                fh.write(chunk)
     except OSError as exc:
+        shutil.rmtree(dest_dir, ignore_errors=True)
         raise HTTPException(status_code=500, detail=f"保存文件失败: {exc}") from exc
+    except HTTPException:
+        shutil.rmtree(dest_dir, ignore_errors=True)
+        raise
 
     try:
         summary = parse_fcs_file(dest_path, original_name)
@@ -76,3 +88,17 @@ async def upload_fcs(file: UploadFile = File(...)) -> FileUploadResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return FileUploadResponse(file_id=file_id, summary=summary)
+
+
+@router.delete(
+    "/files/{file_id}",
+    status_code=204,
+    responses={404: {"model": ApiError}},
+)
+def delete_file(file_id: str) -> None:
+    """删除上传文件：清缓存、删数据目录与门控文件，释放内存与磁盘。"""
+    try:
+        _resolve_fcs_path(file_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    drop_sample(file_id)

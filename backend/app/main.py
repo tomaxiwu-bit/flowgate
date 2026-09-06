@@ -18,10 +18,10 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# 开发阶段允许本地前端跨域；上线前收紧为具体域名
+# CORS 来源由 FLOWGATE_CORS_ORIGINS 环境变量配置（逗号分隔）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

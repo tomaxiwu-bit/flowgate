@@ -35,9 +35,11 @@ def get_gates(file_id: str) -> GatesPayload:
 
 @router.put("/files/{file_id}/gates", response_model=GatesPayload)
 def save_gates(file_id: str, payload: GatesPayload) -> GatesPayload:
-    """保存门控树。"""
+    """保存门控树（原子写：先写临时文件再替换，防并发半截 JSON）。"""
     path = _gates_path(file_id)
-    path.write_text(payload.model_dump_json(indent=2), encoding="utf-8")
+    tmp_path = path.with_suffix(".json.tmp")
+    tmp_path.write_text(payload.model_dump_json(indent=2), encoding="utf-8")
+    tmp_path.replace(path)
     return payload
 
 
@@ -53,6 +55,6 @@ def evaluate(file_id: str, payload: GatesPayload) -> list[GateEvaluation]:
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
-        return evaluate_gates(sample, payload.gates)
+        return evaluate_gates(sample, payload.gates, file_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

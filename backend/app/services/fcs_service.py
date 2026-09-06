@@ -50,7 +50,8 @@ def attach_compensation(sample) -> bool:
     """若 FCS 内嵌 $SPILLOVER，则构造补偿矩阵并应用到 Sample。
 
     成功返回 True；无矩阵或构造失败返回 False（不抛异常，
-    上层按"未补偿"继续处理）。
+    上层按"未补偿"继续处理，并通过 compensation_applied 字段
+    把状态暴露给前端，避免静默降级）。
     """
     spill = extract_spillover(sample)
     if not spill:
@@ -65,7 +66,21 @@ def attach_compensation(sample) -> bool:
         detectors = parts[1 : 1 + detector_count]
         if len(detectors) != detector_count:
             return False
-        matrix = Matrix(spill, detectors)
+
+        # GatingML 需要 fluorochrome 名：优先 $PnS（pns_labels），
+        # 空串时用 detector 名兜底（保证导出 spectrumMatrix 非空）
+        fluorochromes = []
+        pns = list(getattr(sample, "pns_labels", None) or [])
+        pnn = list(getattr(sample, "pnn_labels", None) or [])
+        for det in detectors:
+            fluoro = ""
+            if det in pnn:
+                idx = pnn.index(det)
+                if idx < len(pns) and pns[idx]:
+                    fluoro = pns[idx]
+            fluorochromes.append(fluoro or det)
+
+        matrix = Matrix(spill, detectors, fluorochromes=fluorochromes)
         sample.apply_compensation(matrix)
         return True
     except Exception:
@@ -117,6 +132,9 @@ def parse_fcs_file(path: Path, filename: str) -> FcsSummary:
     scatter_labels = [label for label in labels if _is_scatter_label(label)]
     fluorescence_labels = [label for label in labels if label not in scatter_labels]
 
+    # 尝试应用内嵌补偿并记录实际状态（与 has_spillover 分离）
+    compensation_applied = attach_compensation(sample)
+
     return FcsSummary(
         filename=filename,
         event_count=event_count,
@@ -125,4 +143,5 @@ def parse_fcs_file(path: Path, filename: str) -> FcsSummary:
         scatter_labels=scatter_labels,
         sample_id=getattr(sample, "sample_id", None) or None,
         has_spillover=extract_spillover(sample) is not None,
+        compensation_applied=compensation_applied,
     )

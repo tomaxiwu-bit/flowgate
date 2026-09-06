@@ -17,7 +17,11 @@ from flowkit import Sample
 from flowkit._models.dimension import Dimension
 from flowkit._models.gates._gates import PolygonGate, RectangleGate
 
+from ..core.lru import LRUCache
 from ..models.schemas import GateDef, GateEvaluation
+
+# file_id -> DataFrame（事件 × 通道），有界 LRU，与 Sample 缓存配套
+_DF_CACHE: LRUCache[str, pd.DataFrame] = LRUCache(maxsize=10)
 
 
 def _build_flowkit_gate(gate: GateDef) -> RectangleGate | PolygonGate:
@@ -43,11 +47,14 @@ def _build_flowkit_gate(gate: GateDef) -> RectangleGate | PolygonGate:
     raise ValueError(f"不支持的门类型: {gate.type}")
 
 
-def evaluate_gates(sample: Sample, gates: list[GateDef]) -> list[GateEvaluation]:
+def evaluate_gates(sample: Sample, gates: list[GateDef], file_id: str) -> list[GateEvaluation]:
     """在 sample 上按层级应用门控树，返回每个门的统计。
 
     子门在父门事件子集上评估：relative_percent 相对父门事件数，
     absolute_percent 相对全部事件数。
+
+    Args:
+        file_id: 文件标识，用于定位 DataFrame 缓存与补偿状态。
     """
     if not gates:
         return []
@@ -69,7 +76,7 @@ def evaluate_gates(sample: Sample, gates: list[GateDef]) -> list[GateEvaluation]
         if gate.parent_id is not None and gate.parent_id not in by_id:
             raise ValueError(f"门 {gate.id} 的父门不存在: {gate.parent_id}")
 
-    df = _events_dataframe(sample)
+    df = _events_dataframe(sample, file_id)
     total = len(df)
 
     results: dict[str, dict[str, float | int]] = {}
@@ -97,6 +104,11 @@ def evaluate_gates(sample: Sample, gates: list[GateDef]) -> list[GateEvaluation]
     for root in roots:
         process(root, None)
 
+    # 文件有 $SPILLOVER 但补偿失败时标记（前端提示统计基于未补偿数据）
+    from ..services.sample_cache import get_compensation_state, has_spillover
+
+    uncompensated_fallback = has_spillover(file_id) and not get_compensation_state(file_id)
+
     evaluations: list[GateEvaluation] = []
     for gate in gates:
         stats = results[gate.id]
@@ -107,27 +119,27 @@ def evaluate_gates(sample: Sample, gates: list[GateDef]) -> list[GateEvaluation]
                 event_count=int(stats["count"]),
                 absolute_percent=float(stats["absolute_percent"]),
                 relative_percent=float(stats["relative_percent"]),
+                uncompensated_fallback=uncompensated_fallback,
             )
         )
     return evaluations
 
 
-# file_id -> DataFrame（事件 × 通道），与 Sample 缓存配套
-_DF_CACHE: dict[str, pd.DataFrame] = {}
-
-
-def _events_dataframe(sample: Sample) -> pd.DataFrame:
-    """获取 sample 的事件 DataFrame（按 file_id 缓存）。
+def _events_dataframe(sample: Sample, file_id: str) -> pd.DataFrame:
+    """获取 sample 的事件 DataFrame（按 file_id 缓存，有界 LRU）。
 
     若文件含补偿矩阵（sample.compensation 非 None），返回补偿后事件，
     保证显示、门评估与统计在同一数据空间。
     """
-    from ..services.sample_cache import _SAMPLE_CACHE
-
-    # 用 Sample 实例 id 定位缓存 key，避免耦合上传目录
-    key = next((k for k, s in _SAMPLE_CACHE.items() if s is sample), id(sample))
-    if key not in _DF_CACHE:
+    df = _DF_CACHE.get(file_id)
+    if df is None:
         source = "comp" if sample.compensation is not None else "raw"
         events = sample.get_events(source=source)
-        _DF_CACHE[key] = pd.DataFrame(events, columns=list(sample.pnn_labels))
-    return _DF_CACHE[key]
+        df = pd.DataFrame(events, columns=list(sample.pnn_labels))
+        _DF_CACHE.put(file_id, df)
+    return df
+
+
+def drop_dataframe(file_id: str) -> None:
+    """从 DataFrame 缓存移除指定文件（与 Sample 缓存联动）。"""
+    _DF_CACHE.pop(file_id)

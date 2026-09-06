@@ -44,8 +44,7 @@ def export_gatingml(file_id: str) -> Response:
     try:
         payload = _load_gates(file_id)
         sample = get_sample(file_id)
-        compensated = sample.compensation is not None
-        xml_bytes = export_gatingml_xml(payload.gates, compensated=compensated)
+        xml_bytes = export_gatingml_xml(payload.gates, sample=sample)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -82,7 +81,7 @@ def export_statistics(file_id: str) -> Response:
     try:
         payload = _load_gates(file_id)
         sample = get_sample(file_id)
-        evaluations = evaluate_gates(sample, payload.gates)
+        evaluations = evaluate_gates(sample, payload.gates, file_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

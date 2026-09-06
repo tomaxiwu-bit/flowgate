@@ -11,6 +11,7 @@ GatingML 2.0 XML（通过 FlowKit 的 export_gatingml）。
 """
 
 import io
+import re
 import uuid
 from collections import defaultdict
 
@@ -26,37 +27,59 @@ _ROOT_PATH = ("root",)
 # 可导入的门类型（FlowKit Gate.gate_type）
 _SUPPORTED_TYPES = {"RectangleGate", "PolygonGate"}
 
+# GatingML 的 gating:id 是 XML NCName：仅允许字母/数字/下划线/连字符，
+# 且不能以数字开头。中文字符落在 XML 1.0 NameStartChar 区间内是合法的，
+# 但空格、圆括号等必须替换。
+_NCNAME_ILLEGAL = re.compile(r"[^\w\u4e00-\u9fff\-]")
+
 
 def _new_id() -> str:
     return uuid.uuid4().hex[:8]
 
 
+def _slug_id(name: str) -> str:
+    """把门名转成合法的 GatingML gating:id（NCName）。
+
+    显示名（中文/空格/括号）保留在门名中，这里仅生成 XML 安全的 id。
+    """
+    slug = _NCNAME_ILLEGAL.sub("_", name)
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    if not slug:
+        slug = "gate"
+    if slug[0].isdigit():
+        slug = "_" + slug
+    return slug
+
+
 def _unique_name(name: str, used: set[str]) -> str:
     """GatingML 要求门 ID 全局唯一，重名时追加后缀。"""
-    if name not in used:
-        used.add(name)
-        return name
+    base = _slug_id(name)
+    if base not in used:
+        used.add(base)
+        return base
     i = 2
-    while f"{name}-{i}" in used:
+    while f"{base}-{i}" in used:
         i += 1
-    candidate = f"{name}-{i}"
+    candidate = f"{base}-{i}"
     used.add(candidate)
     return candidate
 
 
-def export_gatingml_xml(gates: list[GateDef], compensated: bool = False) -> bytes:
+def export_gatingml_xml(gates: list[GateDef], sample=None) -> bytes:
     """将门控树导出为 GatingML 2.0 XML 字节串。
 
     Args:
         gates: 门控树。
-        compensated: 数据是否已应用 FCS 内嵌补偿（$SPILLOVER）。
-            为 True 时门坐标声明为"FCS 补偿空间"（compensation-ref="FCS"），
-            目标软件加载同一文件的内嵌矩阵后坐标即对齐。
+        sample: 可选的 FlowKit Sample。若其已应用补偿（compensation 非 None），
+            则把补偿矩阵写入 XML（spectrumMatrix）并让门坐标引用它，
+            使导出的 GatingML 自包含；否则门坐标声明为 uncompensated。
     """
     if not gates:
         raise ValueError("门控树为空，无法导出")
 
-    comp_ref = "FCS" if compensated else "uncompensated"
+    comp_ref = "uncompensated"
+    if sample is not None and sample.compensation is not None:
+        comp_ref = "spill"
 
     by_id = {g.id: g for g in gates}
     children: dict[str | None, list[GateDef]] = defaultdict(list)
@@ -68,18 +91,23 @@ def export_gatingml_xml(gates: list[GateDef], compensated: bool = False) -> byte
 
     used_names: set[str] = set()
     strategy = GatingStrategy()
+
+    if comp_ref == "spill":
+        # 把补偿矩阵写入文档，门坐标的 compensation-ref 才能自洽（P1-N1）
+        strategy.add_comp_matrix("spill", sample.compensation)
+
     added: set[str] = set()
 
     def add_recursive(gate: GateDef, ancestor_ids: list[str]) -> None:
         if gate.id in added:
             return
-        # 构造 FlowKit Gate（门名用去重后的 GatingML ID）
-        gate_name = _unique_name(gate.name or gate.id, used_names)
+        # 构造 FlowKit Gate（GatingML id 用 NCName slug，保证 XML 合法）
+        gate_id = _unique_name(gate.name or gate.id, used_names)
         if gate.type == "rect":
             if gate.x_min is None or gate.x_max is None or gate.y_min is None or gate.y_max is None:
                 raise ValueError(f"矩形门 {gate.id} 缺少范围")
             fk_gate: RectangleGate | PolygonGate = RectangleGate(
-                gate_name,
+                gate_id,
                 [
                     Dimension(gate.x_label, compensation_ref=comp_ref, range_min=gate.x_min, range_max=gate.x_max),
                     Dimension(gate.y_label, compensation_ref=comp_ref, range_min=gate.y_min, range_max=gate.y_max),
@@ -89,7 +117,7 @@ def export_gatingml_xml(gates: list[GateDef], compensated: bool = False) -> byte
             if len(gate.vertices or []) < 3:
                 raise ValueError(f"多边形门 {gate.id} 至少需要 3 个顶点")
             fk_gate = PolygonGate(
-                gate_name,
+                gate_id,
                 [
                     Dimension(gate.x_label, compensation_ref=comp_ref),
                     Dimension(gate.y_label, compensation_ref=comp_ref),
@@ -104,7 +132,7 @@ def export_gatingml_xml(gates: list[GateDef], compensated: bool = False) -> byte
         strategy.add_gate(fk_gate, gate_path=path)
         added.add(gate.id)
 
-        next_ancestors = ancestor_ids + [gate_name]
+        next_ancestors = ancestor_ids + [gate_id]
         for child in children[gate.id]:
             add_recursive(child, next_ancestors)
 
@@ -116,20 +144,54 @@ def export_gatingml_xml(gates: list[GateDef], compensated: bool = False) -> byte
     return buf.getvalue()
 
 
+def _decode_xml_safely(data: bytes) -> str:
+    """按 BOM/声明检测编码并解码，供 DOCTYPE 全文检查使用。
+
+    支持 UTF-8 / UTF-16（LE/BE）；解码失败视为非法 XML。
+    """
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return data.decode("utf-16", errors="strict")
+    if data[:3] == b"\xef\xbb\xbf":
+        return data.decode("utf-8-sig", errors="strict")
+    return data.decode("utf-8", errors="strict")
+
+
 def import_gatingml_xml(xml_bytes: bytes) -> GatesPayload:
     """解析 GatingML 2.0 XML 为 FlowGate 门控树。
 
     仅支持矩形/多边形门；其他类型（布尔门、象限门等）会被跳过，
     门名作为显示名保留，内部 id 重新生成。
+
+    XXE 防护（双层）：
+    1. 解码后全文检查 DOCTYPE（无字节窗口限制，覆盖 UTF-16 编码）；
+    2. lxml 安全解析器预检（resolve_entities=False / load_dtd=False /
+       no_network=True），任何 DTD 声明都在解析层被拒绝。
     """
-    # XXE 防御纵深：显式拒绝含 DOCTYPE 的文档（不依赖解析器的默认行为）
-    if b"<!DOCTYPE" in xml_bytes[:4096].upper():
+    from lxml import etree
+
+    try:
+        text = _decode_xml_safely(xml_bytes)
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"GatingML 文件编码无法识别: {exc}") from exc
+
+    if "<!DOCTYPE" in text.upper():
         raise ValueError("检测到 DOCTYPE 声明，已拒绝（XXE 防护）")
+
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        load_dtd=False,
+        no_network=True,
+        recover=False,
+    )
+    try:
+        etree.fromstring(xml_bytes, parser=parser)
+    except etree.XMLSyntaxError as exc:
+        raise ValueError(f"GatingML 文件无法解析: {exc}") from exc
 
     try:
         strategy = parse_gating_xml(io.BytesIO(xml_bytes))
     except Exception as exc:
-        # XMLSyntaxError 等解析异常统一转业务错误（返回 400 而非 500）
+        # 解析器差异等异常统一转业务错误（返回 400 而非 500）
         raise ValueError(f"GatingML 文件无法解析: {exc}") from exc
 
     gates: list[GateDef] = []

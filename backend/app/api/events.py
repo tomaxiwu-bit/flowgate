@@ -4,22 +4,14 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import ApiError, EventsResponse
-from app.services.sample_cache import get_sample
+from app.services.sample_cache import (
+    get_compensation_state,
+    get_sample,
+    get_transforms,
+    has_spillover,
+)
 
 router = APIRouter(tags=["events"])
-
-# sample 实例 id -> generate_transforms 结果（荧光通道为 Logicle，散射为 Linear）
-_TRANSFORM_CACHE: dict[int, dict] = {}
-
-
-def _get_transforms(sample):
-    """获取（并缓存）sample 的通道变换表。"""
-    key = id(sample)
-    if key not in _TRANSFORM_CACHE:
-        import flowkit as fk
-
-        _TRANSFORM_CACHE[key] = fk.generate_transforms(sample)
-    return _TRANSFORM_CACHE[key]
 
 
 @router.get(
@@ -65,7 +57,7 @@ def get_events(
     ys = np.asarray(events[:, y_idx], dtype=np.float64)
 
     if transform == "logicle":
-        transforms = _get_transforms(sample)
+        transforms = get_transforms(file_id, sample)
         for ch in (x, y):
             if ch not in transforms:
                 raise HTTPException(status_code=400, detail=f"通道 {ch} 无可用的显示变换")
@@ -79,6 +71,9 @@ def get_events(
         xs = xs[idx]
         ys = ys[idx]
 
+    # 文件有 $SPILLOVER 但补偿失败：返回的实为未补偿数据（前端需红字提示）
+    uncompensated_fallback = has_spillover(file_id) and not get_compensation_state(file_id)
+
     return EventsResponse(
         x_label=x,
         y_label=y,
@@ -88,4 +83,5 @@ def get_events(
         y=[float(v) for v in ys],
         data_space="logicle" if transform == "logicle" else ("comp" if source == "comp" else "raw"),
         compensated=source == "comp",
+        uncompensated_fallback=uncompensated_fallback,
     )

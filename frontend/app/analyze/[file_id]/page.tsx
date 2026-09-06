@@ -303,6 +303,11 @@ export default function AnalyzePage() {
                 {dataTransform === "logicle" ? " · Logicle" : ""}
               </div>
             )}
+            {events?.uncompensated_fallback && (
+              <div style={{ fontSize: 11, color: "#EA6668", marginTop: 6, fontWeight: 600 }}>
+                ⚠ 文件含 $SPILLOVER 但补偿未能应用（矩阵损坏或检测器名不匹配），当前显示与统计均为未补偿数据。
+              </div>
+            )}
           </section>
 
           {/* 显示变换 */}
@@ -335,7 +340,7 @@ export default function AnalyzePage() {
             )}
             {dataTransform === "logicle" && (
               <div style={{ fontSize: 11, color: "#EA6668", marginTop: 8 }}>
-                Logicle 仅用于查看数据分布；门控请在「线性」模式下进行（门定义与导出始终使用补偿线性坐标）。
+                Logicle 仅用于查看数据分布；门控请在「线性」模式下进行（门定义与导出始终使用补偿线性坐标）。散射通道（FSC/SSC/Time）在任何模式下均为线性显示。
               </div>
             )}
           </section>
@@ -541,6 +546,9 @@ function GateTreeItem({
         {ev && (
           <span style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap" }}>
             {ev.event_count.toLocaleString()} · {ev.relative_percent.toFixed(1)}%
+            {ev.uncompensated_fallback && (
+              <span style={{ color: "#EA6668", fontWeight: 600 }}> ⚠未补偿</span>
+            )}
           </span>
         )}
         <button

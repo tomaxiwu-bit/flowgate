@@ -11,8 +11,12 @@
 ## 为什么做这个项目
 
 商业流式分析软件（FlowJo、FCS Express）功能强大但昂贵，且授权绑定硬件；
-Cytobank 提供 Web 分析但需要付费订阅；而"免费 + 开源 + 浏览器零安装"的
-流式数据分析工具在全生态层面是空白。
+Cytobank 提供 Web 分析但需要付费订阅。已有的开源 Web 方案（如 CAFE、AutoFlow）
+以 R/Python 分析后端为主，**FlowGate 的差异化定位是**：
+
+- **浏览器零安装 + 中文界面**：打开网址即用，不需要装 Python/R 或学习脚本；
+- **GatingML 2.0 双向互操作**：门模板可导入 FlowJo / FCS Express 等商业软件；
+- **补偿 + Logicle + 门控 + 统计全链路在浏览器内完成**（基于 FlowKit 领域内核）。
 
 本项目瞄准学生、教学、小实验室与可复现性研究场景：
 论文方法学可以光明正大引用、老师可以让全班同学点开一个网址、分析过程完全可审计。
@@ -21,7 +25,7 @@ Cytobank 提供 Web 分析但需要付费订阅；而"免费 + 开源 + 浏览�
 
 - [x] FCS 文件上传与解析（FlowKit）
 - [x] **自动荧光补偿**（读取文件内嵌 `$SPILLOVER` 矩阵，线性模式默认应用）
-- [x] **Logicle 显示变换**（查看模式，参数由 FlowKit 自动估计）
+- [x] **Logicle 显示变换**（查看模式；使用标准 Logicle 默认参数 w=0.5、m=4、T=通道 PnR，非数据自适应估计）
 - [x] 交互式散点图（缩放 / 平移 / 框选放大）
 - [x] 拖放门控（矩形门 / 多边形门）
 - [x] 层级门控树（父子门 + 事件统计）
@@ -71,7 +75,8 @@ flowgate/
 |---|---|
 | `GET /api/health` | 健康检查 |
 | `POST /api/files/upload` | 上传并解析 FCS（≤500 MB，含 `$SPILLOVER` 自动补偿） |
-| `GET /api/files/{id}` | 文件解析摘要（含 `has_spillover`） |
+| `GET /api/files/{id}` | 文件解析摘要（含 `has_spillover` / `compensation_applied`） |
+| `DELETE /api/files/{id}` | 删除文件：清缓存、删数据目录与门控文件 |
 | `GET /api/files/{id}/events?x=&y=&limit=&compensate=&transform=` | 两通道事件坐标；`transform=raw\|logicle` |
 | `GET /api/files/{id}/gates` | 读取门控树 |
 | `PUT /api/files/{id}/gates` | 保存门控树（门名白名单校验） |
@@ -132,8 +137,13 @@ npm run dev     # 默认 http://localhost:3000
   （只导入矩形与多边形门）。
 - GatingML 坐标基于补偿线性空间：若目标软件对同一文件应用了不同的补偿/变换，
   门坐标可能不重合，建议以"门模板"方式使用而非依赖自动对齐。
-- Logicle 为查看模式，暂不支持在其空间内直接画门。
-- GatingML 导入会拒绝含 DOCTYPE 的文档（XXE 防护）；畸形 XML 返回 400。
+- Logicle 为查看模式，暂不支持在其空间内直接画门；散射通道（FSC/SSC/Time）
+  在任何模式下均为线性显示。
+- 补偿为"尽力而为"：文件内嵌 `$SPILLOVER` 但矩阵损坏或检测器名不匹配时，
+  自动降级为未补偿数据，接口与界面会以 `uncompensated_fallback` 标记提示，
+  不会静默产出错误统计。
+- GatingML 导入在解析层拒绝任何 DOCTYPE（XXE 防护，含 UTF-16 编码场景）；
+  畸形 XML 返回 400。
 - 服务无鉴权、无上传文件自动清理：**请勿公网部署**（详见顶部警告）。
 
 ## 一键部署（Docker）
@@ -157,6 +167,7 @@ docker compose up --build
 | 8 | 测试、文档、部署、README | ✅ 完成 |
 | 9 | 荧光补偿 + Logicle 显示 + 安全加固 | ✅ 完成 |
 | 10 | CI、Docker、覆盖率门槛、XXE 加固、git 版本控制 | ✅ 完成 |
+| 11 | 审计修复：缓存 LRU、DELETE API、补偿自包含导出、补偿降级告警、gating:id NCName、XXE forbid_dtd、荧光通道 E2E、Docker 远程部署 | ✅ 完成 |
 
 ## License
 

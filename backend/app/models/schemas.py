@@ -25,6 +25,8 @@ class FcsSummary(BaseModel):
     sample_id: str | None = None
     # 文件是否内嵌 $SPILLOVER 补偿矩阵（有则后端默认应用补偿）
     has_spillover: bool = False
+    # 补偿是否实际应用成功（False=无矩阵或矩阵损坏静默降级）
+    compensation_applied: bool = False
 
 
 class FileUploadResponse(BaseModel):
@@ -47,6 +49,8 @@ class EventsResponse(BaseModel):
     data_space: Literal["raw", "comp", "logicle"]
     # 文件是否有补偿矩阵（compensate 请求被忽略时置 False）
     compensated: bool = False
+    # 文件有 $SPILLOVER 但补偿失败：当前返回的是未补偿数据
+    uncompensated_fallback: bool = False
 
 
 class GateDef(BaseModel):
@@ -81,6 +85,8 @@ class GateEvaluation(BaseModel):
     event_count: int
     absolute_percent: float
     relative_percent: float
+    # 文件有 $SPILLOVER 但补偿失败：统计基于未补偿数据
+    uncompensated_fallback: bool = False
 
 
 class GatesPayload(BaseModel):

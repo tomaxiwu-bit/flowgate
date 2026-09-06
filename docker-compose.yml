@@ -8,14 +8,19 @@ services:
     environment:
       - FLOWGATE_UPLOAD_DIR=/data/uploads
       - FLOWGATE_GATES_DIR=/data/gates
+      # 远程部署时覆盖为你的域名，例如 https://flowgate.example.com
+      - FLOWGATE_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # NEXT_PUBLIC_* 必须在 build 时注入（客户端变量），
+      # 远程部署时覆盖为浏览器可访问的后端地址
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${FLOWGATE_API_BASE_URL:-http://127.0.0.1:8000}
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
     depends_on:
       - backend
     restart: unless-stopped

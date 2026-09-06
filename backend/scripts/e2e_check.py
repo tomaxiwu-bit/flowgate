@@ -91,7 +91,8 @@ xml = r.text
 check("Gating-ML 根元素", "Gating-ML" in xml, xml[:200])
 check("含门", "RectangleGate" in xml, xml[:300])
 check("中文门名作为 id", "淋巴细胞" in xml)
-check("补偿空间声明 FCS", 'compensation-ref="FCS"' in xml, "未声明补偿")
+check("自包含补偿矩阵", "spectrumMatrix" in xml, "未写入补偿矩阵")
+check("门坐标引用文档内补偿", 'compensation-ref="spill"' in xml, "补偿引用非自包含")
 
 print("\n== 7. GatingML 导入 ==")
 with open(GML, "rb") as fh:

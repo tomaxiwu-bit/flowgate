@@ -14,6 +14,8 @@ export interface FcsSummary {
   scatter_labels: string[];
   sample_id: string | null;
   has_spillover: boolean;
+  /** 补偿是否实际应用成功（False=无矩阵或矩阵损坏静默降级） */
+  compensation_applied: boolean;
 }
 
 export interface FileUploadResponse {
@@ -65,6 +67,8 @@ export interface EventsData {
   data_space: "raw" | "comp" | "logicle";
   /** 是否实际应用了补偿 */
   compensated: boolean;
+  /** 文件有 $SPILLOVER 但补偿失败：当前返回的是未补偿数据 */
+  uncompensated_fallback: boolean;
 }
 
 export interface GateDef {
@@ -87,6 +91,8 @@ export interface GateEvaluation {
   event_count: number;
   absolute_percent: number;
   relative_percent: number;
+  /** 文件有 $SPILLOVER 但补偿失败：统计基于未补偿数据 */
+  uncompensated_fallback: boolean;
 }
 
 /** 获取已上传文件的解析摘要。 */
