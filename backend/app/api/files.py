@@ -18,6 +18,16 @@ _ALLOWED_EXTENSIONS = {".fcs"}
 _CHUNK_SIZE = 1024 * 1024  # 1 MB 流式写入分块
 
 
+def _sanitize_filename(raw: str) -> str:
+    """取原始文件名的 basename，杜绝路径穿越。
+
+    统一把反斜杠视为路径分隔符再取 basename——Windows 与 Linux 行为一致
+    （Linux 上 Path.name 不识别 '\\'，必须显式替换）。
+    """
+    name = Path(raw.replace("\\", "/")).name
+    return name or "unnamed.fcs"
+
+
 @router.get(
     "/files/{file_id}",
     response_model=FcsSummary,
@@ -49,7 +59,7 @@ async def upload_fcs(file: UploadFile = File(...)) -> FileUploadResponse:
     """
     settings = get_settings()
 
-    original_name = Path(file.filename or "unnamed.fcs").name or "unnamed.fcs"
+    original_name = _sanitize_filename(file.filename or "unnamed.fcs")
     ext = Path(original_name).suffix.lower()
     if ext not in _ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"仅支持 FCS 文件，收到扩展名 {ext!r}")
