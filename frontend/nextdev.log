@@ -1,0 +1,30 @@
+﻿
+> flowgate-frontend@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.25
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.31.99:3000
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ○ Compiling / ...
+ ✓ Compiled / in 1305ms (583 modules)
+ GET / 200 in 2063ms
+ ✓ Compiled /_not-found in 461ms (588 modules)
+ GET /api/health 404 in 723ms
+node.exe :  ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+所在位置 行:1 字符: 1
++ & "C:\Users\18519\AppData\Local\Doubao\User Data\sandbox_runtime\base ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ⚠ Found a chan... the changes...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   ▲ Next.js 15.5.25
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.31.99:3000
+
+ ✓ Starting...
+ ✓ Ready in 2.4s
+ ○ Compiling /upload ...
+ ✓ Compiled /upload in 5.4s (606 modules)
