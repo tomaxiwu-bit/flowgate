@@ -6,17 +6,19 @@
 ![CI](https://github.com/tomaxiwu-bit/flowgate/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-9EACEA)
 ![Python](https://img.shields.io/badge/Python-3.12-8BC8EA)
-![Tests](https://img.shields.io/badge/tests-57%20passed-94D8C3)
+![Tests](https://img.shields.io/badge/tests-72%20passed-94D8C3)
 ![Coverage](https://img.shields.io/badge/coverage-90%25-94D8C3)
 
 > **Status: MVP 已完成** — FCS 解析、自动荧光补偿、交互散点图（线性 / Logicle 显示）、
-> 拖放门控、层级门控树、统计导出与 GatingML 2.0 互操作均已可用，测试 57 项、覆盖率 90%。
+> 拖放门控、层级门控树、统计导出与 GatingML 2.0 互操作均已可用，测试 72 项通过，覆盖率 89.55%。
 
 > **Demo**：在线演示即将上线（HuggingFace Spaces，见 [部署指南](./docs/DEPLOY_HUGGINGFACE_SPACES.md)）。
 > 本地 2 分钟即可跑起来，见[快速开始](#快速开始)。
 
 > ⚠️ **部署安全警告**：本项目**无鉴权、无文件自动清理**，上传的文件会以明文落盘。
 > **仅限本地 / 内网 / 可信环境使用，切勿直接暴露到公网。**
+
+安全修复：文件 ID 仅接受服务生成的 32 位十六进制值，文件及门控路径校验存储目录边界；不存在的上传不能创建门控。门控保存和评估共同拒绝环、孤立父节点、重复 ID、无效坐标和过深层级。Docker 默认端口仅绑定 `127.0.0.1`；这些修复没有增加账号或多用户隔离，远程共享仍需独立访问控制。本机服务还会拒绝非可信 Host 和来源不匹配的浏览器写请求；可信远程部署需配置 `FLOWGATE_TRUSTED_HOSTS` 为实际主机名，并配置 `FLOWGATE_CORS_ORIGINS` 为前端来源。
 
 ## 为什么用 FlowGate（而不是已有的工具）
 
@@ -52,7 +54,7 @@
 - **安全加固**：XXE 双层防护（解码层 DOCTYPE 全文检查 + lxml 安全解析器，
   实测覆盖 UTF-16 编码与注释填充绕过）、路径遍历防护、CSV 公式注入防护、
   上传扩展名与大小校验、GatingML 导入畸形文件返回 400。
-- **工程化**：57 项 pytest（覆盖率 90%，CI 门槛 85%）+ 30 项真实服务端到端检查 +
+- **工程化**：72 项 pytest（本次覆盖率 89.55%，CI 门槛 85%）+
   两轮对抗式审计驱动修复；`evaluate_gates` 用 FlowKit 在真实事件上评估，
   荧光通道门控有专门的补偿显著性 E2E 测试。
 - **性能**：LRU 有界缓存（sample / transform / DataFrame 三层联动）、
@@ -86,8 +88,7 @@ flowgate/
 │   │   ├── core/           # 配置 + LRU 缓存
 │   │   ├── services/       # FlowKit 业务封装（解析、补偿、缓存、门控评估、GatingML）
 │   │   └── models/         # Pydantic 数据模型
-│   ├── scripts/            # e2e_check.py（30 项端到端）、verify_fcs.py 等
-│   └── tests/              # pytest 57 项，覆盖率 90%
+│   └── tests/              # 本次 72 项通过、1 项环境条件跳过，覆盖率 89.55%
 ├── frontend/               # Next.js 前端（upload / analyze 页面）
 ├── examples/fcs/           # 公开测试 FCS 样本（FlowKit 官方 8 色数据集，含 $SPILLOVER）
 ├── examples/gatingml/      # 官方 GatingML 2.0 样例（8_color_ICS.xml）
@@ -189,9 +190,8 @@ docker compose up --build
 
 ## 工程与质量
 
-- 57 项 pytest，覆盖率 90%（CI 门槛 85%），覆盖：解析、补偿、缓存淘汰、上传边界、
+- 本次 72 项 pytest 通过、1 项因 Windows 符号链接权限跳过，覆盖率 89.55%（CI 门槛 85%），覆盖：解析、补偿、缓存淘汰、上传边界、
   XXE（UTF-8/UTF-16/注释填充）、GatingML 双向、荧光通道门控显著性、DELETE 清理。
-- 30 项真实服务端到端检查（`backend/scripts/e2e_check.py`）：真实 FCS 走完整 HTTP 链路。
 - 两轮对抗式审计（含安全与推销演练）驱动修复，审计报告与修复记录见 git 历史。
 - 上游：核心能力基于 [FlowKit](https://github.com/whitews/flowkit)；
   发现的文档/API 改进点见 [docs/FLOWKIT_ISSUE_DRAFT.md](./docs/FLOWKIT_ISSUE_DRAFT.md)。

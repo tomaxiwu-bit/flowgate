@@ -76,12 +76,12 @@ def export_gatingml_xml(gates: list[GateDef], sample=None) -> bytes:
     """
     if not gates:
         raise ValueError("门控树为空，无法导出")
+    GatesPayload(gates=gates)
 
     comp_ref = "uncompensated"
     if sample is not None and sample.compensation is not None:
         comp_ref = "spill"
 
-    by_id = {g.id: g for g in gates}
     children: dict[str | None, list[GateDef]] = defaultdict(list)
     for gate in gates:
         children[gate.parent_id].append(gate)

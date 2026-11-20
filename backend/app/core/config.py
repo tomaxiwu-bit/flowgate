@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # 跨域来源（逗号分隔；部署时用 FLOWGATE_CORS_ORIGINS 覆盖，
     # 例如 "https://demo.example.com,http://localhost:3000"）
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    trusted_hosts: str = "localhost,127.0.0.1,backend"
 
     # 上传的 FCS 文件临时存储目录
     upload_dir: Path = BACKEND_DIR / "uploads"

@@ -10,7 +10,7 @@ from fastapi.responses import Response
 from app.models.schemas import ApiError, GatesPayload
 from app.services.gate_service import evaluate_gates
 from app.services.gml_service import export_gatingml_xml, import_gatingml_xml
-from app.services.sample_cache import get_sample
+from app.services.sample_cache import _resolve_fcs_path, get_sample
 
 router = APIRouter(tags=["export"])
 
@@ -66,7 +66,11 @@ def export_gatingml(file_id: str) -> Response:
 )
 async def import_gatingml(file_id: str, file: UploadFile = File(...)) -> GatesPayload:
     """从 GatingML 2.0 XML 文件导入门控树。"""
-    content = await file.read()
+    try:
+        _resolve_fcs_path(file_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    content = await file.read(10 * 1024 * 1024 + 1)
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="GatingML 文件超过 10 MB")
     try:
@@ -97,7 +101,7 @@ def export_statistics(file_id: str) -> Response:
         gate = by_id.get(ev.id)
         writer.writerow(
             [
-                ev.id,
+                _sanitize_csv_field(ev.id),
                 _sanitize_csv_field(ev.name),
                 _sanitize_csv_field(gate.type if gate else ""),
                 _sanitize_csv_field(gate.parent_id if gate and gate.parent_id else ""),

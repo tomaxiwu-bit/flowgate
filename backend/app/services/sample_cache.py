@@ -7,6 +7,9 @@ FlowKit 的 Sample 构造只读文件头（约 0.1s），事件数据按需加�
 （对应审计 P0-N1：三处缓存无界泄漏）。
 """
 
+import re
+from pathlib import Path
+
 from flowkit import Sample
 
 from ..core.config import get_settings
@@ -23,15 +26,29 @@ _TRANSFORM_CACHE: LRUCache[str, dict] = LRUCache(maxsize=10)
 _COMPENSATION_STATE: dict[str, bool] = {}
 
 
+def _storage_path(directory: Path, file_id: str, suffix: str = "") -> Path:
+    """Only server-issued IDs may address files inside the configured store."""
+    if not re.fullmatch(r"[0-9a-f]{32}", file_id):
+        raise FileNotFoundError("文件 ID 无效")
+    root = directory.resolve()
+    path = (root / f"{file_id}{suffix}").resolve()
+    if path.parent != root:
+        raise FileNotFoundError("文件路径无效")
+    return path
+
+
 def _resolve_fcs_path(file_id: str) -> str:
     """在 uploads/<file_id>/ 下定位唯一的 .fcs 文件。"""
-    upload_dir = get_settings().upload_dir / file_id
+    upload_dir = _storage_path(get_settings().upload_dir, file_id)
     if not upload_dir.is_dir():
         raise FileNotFoundError(f"文件不存在: {file_id}")
-    fcs_files = sorted(upload_dir.glob("*.fcs"))
+    fcs_files = sorted(p for p in upload_dir.iterdir() if p.suffix.lower() == ".fcs" and p.is_file())
     if not fcs_files:
         raise FileNotFoundError(f"文件不存在: {file_id}")
-    return str(fcs_files[0])
+    path = fcs_files[0].resolve()
+    if path.parent != upload_dir:
+        raise FileNotFoundError("文件路径无效")
+    return str(path)
 
 
 def get_sample(file_id: str) -> Sample:
@@ -40,9 +57,10 @@ def get_sample(file_id: str) -> Sample:
     若 FCS 内嵌 $SPILLOVER 补偿矩阵，加载后自动应用补偿，
     后续 get_events(source="comp") 返回补偿后数据。
     """
+    path = _resolve_fcs_path(file_id)
     sample = _SAMPLE_CACHE.get(file_id)
     if sample is None:
-        sample = Sample(_resolve_fcs_path(file_id))
+        sample = Sample(path)
         comp_ok = attach_compensation(sample)
         _COMPENSATION_STATE[file_id] = comp_ok
         _SAMPLE_CACHE.put(file_id, sample)
@@ -91,15 +109,15 @@ def evict(file_id: str) -> None:
 
 def drop_sample(file_id: str) -> None:
     """从所有缓存移除指定文件，并删除其数据目录与门控文件。"""
+    settings = get_settings()
+    upload_dir = _storage_path(settings.upload_dir, file_id)
+    gates_file = _storage_path(settings.gates_dir, file_id, ".json")
     evict(file_id)
 
     # 删除磁盘数据：uploads/<file_id>/ 与 gates/<file_id>.json
-    settings = get_settings()
     import shutil
 
-    upload_dir = settings.upload_dir / file_id
     if upload_dir.is_dir():
         shutil.rmtree(upload_dir, ignore_errors=True)
-    gates_file = settings.gates_dir / f"{file_id}.json"
     if gates_file.exists():
         gates_file.unlink(missing_ok=True)

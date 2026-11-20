@@ -188,4 +188,4 @@ class TestGates:
             ]
         }
         resp = client.post(f"/api/files/{file_id}/gates/evaluate", json=payload)
-        assert resp.status_code == 400
+        assert resp.status_code == 422

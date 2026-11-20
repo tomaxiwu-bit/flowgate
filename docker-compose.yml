@@ -2,12 +2,13 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - flowgate-data:/data
     environment:
       - FLOWGATE_UPLOAD_DIR=/data/uploads
       - FLOWGATE_GATES_DIR=/data/gates
+      - FLOWGATE_TRUSTED_HOSTS=${FLOWGATE_TRUSTED_HOSTS:-localhost,127.0.0.1,backend}
       # 远程部署时覆盖为你的域名，例如 https://flowgate.example.com
       - FLOWGATE_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
     restart: unless-stopped
@@ -20,7 +21,7 @@ services:
       args:
         NEXT_PUBLIC_API_BASE_URL: ${FLOWGATE_API_BASE_URL:-http://127.0.0.1:8000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     restart: unless-stopped

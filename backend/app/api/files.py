@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.core.config import get_settings
 from app.models.schemas import ApiError, FcsSummary, FileUploadResponse
 from app.services.fcs_service import FcsParseError, parse_fcs_file
-from app.services.sample_cache import drop_sample, get_sample, _resolve_fcs_path
+from app.services.sample_cache import _resolve_fcs_path, drop_sample
 
 router = APIRouter(tags=["files"])
 
@@ -109,6 +109,6 @@ def delete_file(file_id: str) -> None:
     """删除上传文件：清缓存、删数据目录与门控文件，释放内存与磁盘。"""
     try:
         _resolve_fcs_path(file_id)
+        drop_sample(file_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    drop_sample(file_id)

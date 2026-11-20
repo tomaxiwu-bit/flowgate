@@ -1,6 +1,9 @@
 """门控树存储与评估路由。"""
 
 import json
+import os
+import tempfile
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
@@ -8,13 +11,14 @@ from pydantic import ValidationError
 from app.core.config import get_settings
 from app.models.schemas import ApiError, GateEvaluation, GatesPayload
 from app.services.gate_service import evaluate_gates
-from app.services.sample_cache import get_sample
+from app.services.sample_cache import _resolve_fcs_path, _storage_path, get_sample
 
 router = APIRouter(tags=["gates"])
 
 
 def _gates_path(file_id: str):
-    return get_settings().gates_dir / f"{file_id}.json"
+    _resolve_fcs_path(file_id)
+    return _storage_path(get_settings().gates_dir, file_id, ".json")
 
 
 @router.get(
@@ -24,7 +28,10 @@ def _gates_path(file_id: str):
 )
 def get_gates(file_id: str) -> GatesPayload:
     """读取已保存的门控树（不存在则返回空树）。"""
-    path = _gates_path(file_id)
+    try:
+        path = _gates_path(file_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     if not path.exists():
         return GatesPayload(gates=[])
     try:
@@ -36,10 +43,22 @@ def get_gates(file_id: str) -> GatesPayload:
 @router.put("/files/{file_id}/gates", response_model=GatesPayload)
 def save_gates(file_id: str, payload: GatesPayload) -> GatesPayload:
     """保存门控树（原子写：先写临时文件再替换，防并发半截 JSON）。"""
-    path = _gates_path(file_id)
-    tmp_path = path.with_suffix(".json.tmp")
-    tmp_path.write_text(payload.model_dump_json(indent=2), encoding="utf-8")
-    tmp_path.replace(path)
+    try:
+        path = _gates_path(file_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as handle:
+        tmp_path = Path(handle.name)
+        try:
+            handle.write(payload.model_dump_json(indent=2))
+        except BaseException:
+            handle.close()
+            tmp_path.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
     return payload
 
 

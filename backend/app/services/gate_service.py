@@ -18,7 +18,7 @@ from flowkit._models.dimension import Dimension
 from flowkit._models.gates._gates import PolygonGate, RectangleGate
 
 from ..core.lru import LRUCache
-from ..models.schemas import GateDef, GateEvaluation
+from ..models.schemas import GateDef, GateEvaluation, GatesPayload
 
 # file_id -> DataFrame（事件 × 通道），有界 LRU，与 Sample 缓存配套
 _DF_CACHE: LRUCache[str, pd.DataFrame] = LRUCache(maxsize=10)
@@ -59,23 +59,13 @@ def evaluate_gates(sample: Sample, gates: list[GateDef], file_id: str) -> list[G
     if not gates:
         return []
 
-    by_id = {g.id: g for g in gates}
-    if len(by_id) != len(gates):
-        raise ValueError("门 id 必须唯一")
+    GatesPayload(gates=gates)
 
     children: dict[str | None, list[GateDef]] = defaultdict(list)
     for gate in gates:
         children[gate.parent_id].append(gate)
 
     roots = children[None]
-    if not roots:
-        raise ValueError("门控树缺少根门（parent_id 为空的节点）")
-
-    # 预检父门存在
-    for gate in gates:
-        if gate.parent_id is not None and gate.parent_id not in by_id:
-            raise ValueError(f"门 {gate.id} 的父门不存在: {gate.parent_id}")
-
     df = _events_dataframe(sample, file_id)
     total = len(df)
 
