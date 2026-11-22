@@ -12,4 +12,6 @@ backend/scripts/e2e_check.py
 frontend/.next
 *.pyc
 *.tsbuildinfo
+**/*.log
+**/.coverage
 .env*

@@ -1,10 +1,11 @@
 /** 后端 API 客户端类型与封装 */
 
-// 直连 FastAPI 后端：不要经 Next.js rewrites 代理上传大文件
-// （Next.js 代理默认 10MB 请求体上限，FCS 文件常超过该值）。
-// 部署时通过 NEXT_PUBLIC_API_BASE_URL 环境变量覆盖。
+// 本地开发直连 FastAPI（绕过 Next rewrites 的请求体上限，FCS 常超 10MB）。
+// 生产构建默认用相对路径：由同源反向代理（nginx）把 /api 转发给后端，
+// 这样浏览器不会去访问它自己的 127.0.0.1。仍可用 NEXT_PUBLIC_API_BASE_URL 覆盖。
 const API_BASE: string =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : "");
 
 export interface FcsSummary {
   filename: string;

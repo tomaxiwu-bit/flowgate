@@ -48,7 +48,7 @@ export default function UploadPage() {
         FCS 文件上传
       </h1>
       <p style={{ color: "var(--text-secondary)", fontSize: 15, marginBottom: 24 }}>
-        骨架演示：上传后由后端 FlowKit 解析，返回文件元信息。门控分析将在后续里程碑实现。
+        上传后由后端 FlowKit 解析，自动读取通道与 $SPILLOVER 补偿矩阵；解析完成即可进入门控分析。
       </p>
 
       <label
@@ -72,7 +72,7 @@ export default function UploadPage() {
         <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
           {state.phase === "uploading"
             ? "上传并调用 FlowKit 解析，请稍候"
-            : "单个文件，最大 500 MB（骨架阶段）"}
+            : "单个文件，最大 500 MB"}
         </span>
         <input
           type="file"

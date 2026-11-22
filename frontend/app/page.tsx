@@ -22,7 +22,7 @@ export default function HomePage() {
             marginBottom: 12,
           }}
         >
-          Skeleton v0.1
+          v0.1 · 已可用
         </div>
         <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>
           FlowGate
@@ -42,13 +42,13 @@ export default function HomePage() {
         }}
       >
         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>
-          目标功能（MVP 路线图）
+          已实现（v0.1）
         </h2>
         <ul style={{ color: "var(--text-secondary)", fontSize: 15, paddingLeft: 20 }}>
-          <li>FCS 文件上传与解析</li>
-          <li>交互式散点图 + 拖放门控（gating）</li>
-          <li>层级门控树 + 群体统计</li>
-          <li>统计导出 + GatingML 2.0 互操作</li>
+          <li>FCS 上传与解析（FlowKit，自动应用内嵌 $SPILLOVER 补偿）</li>
+          <li>交互式散点图：平移 / 缩放 / 矩形门 / 多边形门</li>
+          <li>层级门控树 + 基于全量事件的群体占比</li>
+          <li>GatingML 2.0 导入导出（可回到 FlowJo）+ 统计 CSV + 图像 PNG</li>
         </ul>
       </section>
 
@@ -64,10 +64,10 @@ export default function HomePage() {
             fontWeight: 600,
           }}
         >
-          上传 FCS 文件（骨架演示）
+          上传 FCS 文件开始分析
         </Link>
         <a
-          href="http://127.0.0.1:8000/docs"
+          href="/docs"
           target="_blank"
           rel="noreferrer"
           style={{
