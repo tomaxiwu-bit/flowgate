@@ -27,7 +27,13 @@ echo "[start] port=${PORT} host=${HOST:-none}"
 echo "[start] trusted_hosts=${FLOWGATE_TRUSTED_HOSTS:-default}"
 echo "[start] cors=${FLOWGATE_CORS_ORIGINS:-default}"
 
-/app/be/.venv/bin/python -m uvicorn app.main:app \
+# 依赖装在系统环境里（见 Dockerfile 的 be 阶段说明），直接用镜像自带 python3。
+# 若外部自行挂载了 venv，也仍然可用。
+PY=python3
+if [ -x /app/be/.venv/bin/python3 ]; then PY=/app/be/.venv/bin/python3; fi
+echo "[start] python=${PY}"
+
+"$PY" -m uvicorn app.main:app \
     --app-dir /app/be --host 127.0.0.1 --port "$API_PORT" &
 API_PID=$!
 

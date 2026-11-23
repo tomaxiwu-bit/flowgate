@@ -18,7 +18,12 @@ FROM python:3.12-slim AS be
 WORKDIR /app
 RUN pip install --no-cache-dir uv
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev
+# 不用 uv sync 建 venv：pyproject 里 python-preference=only-managed，
+# uv 会把 .venv 指向它自己下载的 Python，而那个解释器只存在于构建阶段，
+# 拷到运行时镜像后 /app/.venv/bin/python 就是断链，启动直接 not found。
+# 改为导出依赖清单装进系统环境，运行时用镜像自带的 python3。
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 RUN mkdir -p uploads gates
 
