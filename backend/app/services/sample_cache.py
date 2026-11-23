@@ -16,11 +16,14 @@ from ..core.config import get_settings
 from ..core.lru import LRUCache
 from .fcs_service import attach_compensation
 
+# 容量可配置：小内存实例下调到 2，避免多个大 FCS 同时驻留
+_CACHE_SIZE = get_settings().sample_cache_size
+
 # file_id -> Sample（有界 LRU）
-_SAMPLE_CACHE: LRUCache[str, Sample] = LRUCache(maxsize=10)
+_SAMPLE_CACHE: LRUCache[str, Sample] = LRUCache(maxsize=_CACHE_SIZE)
 
 # file_id -> generate_transforms 结果（荧光通道 Logicle / 散射 Linear）
-_TRANSFORM_CACHE: LRUCache[str, dict] = LRUCache(maxsize=10)
+_TRANSFORM_CACHE: LRUCache[str, dict] = LRUCache(maxsize=_CACHE_SIZE)
 
 # file_id -> 补偿是否成功应用（True=已补偿，False=无矩阵或补偿失败）
 _COMPENSATION_STATE: dict[str, bool] = {}

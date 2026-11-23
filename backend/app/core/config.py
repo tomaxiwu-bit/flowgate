@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # 单文件大小上限（MB）
     max_upload_mb: int = 500
 
+    # 已加载 Sample 的 LRU 容量。每个 Sample 常驻内存约等于全量事件表，
+    # 小内存实例（如 512MB 的免费容器）应调到 2 甚至 1，否则多个文件同时驻留会 OOM。
+    sample_cache_size: int = 10
+
     @property
     def cors_origin_list(self) -> list[str]:
         """把逗号分隔的 CORS 配置解析为列表。"""

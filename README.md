@@ -41,7 +41,26 @@ flowchart LR
 - 实例没有登录与鉴权，上传的文件只存在该进程内存与临时目录，不要传敏感数据。
 - 17 MB 样例经隧道上传约需 20–40 秒，取决于维护者上行带宽。
 
-## 启动并试用
+## 部署到公网（免费档）
+
+仓库带 `render.yaml`，一个 Docker 服务即可上线，不需要信用卡：
+
+1. 用 GitHub 账号登录 <https://render.com>。
+2. 控制台 New → Blueprint → 选中 `flowgate` 仓库 → Apply。
+3. 构建完成后拿到 `https://flowgate-xxxx.onrender.com`，打开 `/upload` 就能用。
+
+免费档是 512MB 内存、0.1 CPU，镜像默认按这个量级调参：单文件上限 100MB（`FLOWGATE_MAX_UPLOAD_MB`）、常驻 Sample 缓存 2（`FLOWGATE_SAMPLE_CACHE_SIZE`）。免费实例 15 分钟无访问会休眠，下次访问冷启动约 1 分钟。
+
+自建服务器：
+
+```bash
+docker build -t flowgate .
+docker run -d -p 8080:8080 -e PORT=8080 -e FLOWGATE_PUBLIC_HOST=demo.example.com flowgate
+```
+
+`FLOWGATE_PUBLIC_HOST` 会写进后端的 TrustedHost 与 CORS 白名单。不设的话，来自该域名的所有写请求都会被 403 —— 这个问题在浏览器上表现为"上传失败"，日志里却是 `不允许的请求来源`。
+
+## 本地启动并试用
 
 推荐从 Docker 启动。需要 Git 和可运行 Docker Compose 的环境：
 
