@@ -7,10 +7,8 @@ services:
     name: flowgate
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: free
     region: singapore
     healthCheckPath: /api/health
-    autoDeploy: true
     envVars:
       # 免费实例 512MB 内存：限制单文件大小与常驻 Sample 数量
       - key: FLOWGATE_MAX_UPLOAD_MB
