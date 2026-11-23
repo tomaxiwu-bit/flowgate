@@ -14,30 +14,31 @@ COPY frontend/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM python:3.12-slim AS be
-WORKDIR /app
-RUN pip install --no-cache-dir uv
-COPY backend/pyproject.toml backend/uv.lock ./
-# 不用 uv sync 建 venv：pyproject 里 python-preference=only-managed，
-# uv 会把 .venv 指向它自己下载的 Python，而那个解释器只存在于构建阶段，
-# 拷到运行时镜像后 /app/.venv/bin/python 就是断链，启动直接 not found。
-# 改为导出依赖清单装进系统环境，运行时用镜像自带的 python3。
-RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt \
-    && pip install --no-cache-dir -r requirements.txt
-COPY backend/app ./app
-RUN mkdir -p uploads gates
-
+# 最终阶段本身就是 Python 环境：依赖装在它自己的 site-packages 里。
+# 不要在中间阶段装依赖再 COPY 过来 —— COPY 代码不会带走已安装的包。
 FROM python:3.12-slim
+
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app/be
+RUN pip install --no-cache-dir uv
+COPY backend/pyproject.toml backend/uv.lock ./
+# pyproject 里 python-preference=only-managed，uv sync 的 .venv 会指向 uv 自下载的解释器，
+# 那个解释器在多阶段拷贝后就是断链（线上报 /app/be/.venv/bin/python: not found）。
+# 这里只导依赖清单，装进当前镜像的系统 Python。
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY backend/app ./app
+RUN mkdir -p uploads gates
+
 # Next standalone 运行时需要 node 二进制
 COPY --from=fe /usr/local/bin/node /usr/local/bin/node
 COPY --from=fe /src/frontend/.next/standalone /srv/next
 COPY --from=fe /src/frontend/.next/static /srv/next/frontend/.next/static
-COPY --from=be /app /app/be
 
 COPY deploy/start.sh /start.sh
 RUN chmod +x /start.sh
