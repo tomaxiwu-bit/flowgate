@@ -4,13 +4,19 @@
 
 *Self-hosted FCS analysis with compensation, interactive gates and exports.*
 
-**[启动并试用](#启动并试用)** · [公开 FCS 样例](examples/fcs/) · [示例门模板](examples/gatingml/8_color_ICS.xml) · [开发与 API](docs/DEVELOPMENT.md)
+**在线试用**：<https://flowgate-gy96.onrender.com> · [本地启动](#本地启动并试用) · [公开 FCS 样例](examples/fcs/) · [示例门模板](examples/gatingml/8_color_ICS.xml) · [开发与 API](docs/DEVELOPMENT.md)
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-online-2ea44f?style=flat-square)](https://flowgate-gy96.onrender.com)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
+[![License MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![CI](https://github.com/tomaxiwu-bit/flowgate/actions/workflows/ci.yml/badge.svg)](https://github.com/tomaxiwu-bit/flowgate/actions/workflows/ci.yml)
 
 FlowGate 需要先在本机或可信环境部署。部署后，使用者通过浏览器操作，无需编写分析脚本；也提供维护者按需开启的临时公网实例（见下节）。
 
 ## 一份 FCS 可以怎样分析
+
+![门控界面：散点图上两级门与群体占比](docs/shots/analyze.png)
 
 ```mermaid
 flowchart LR
@@ -82,7 +88,7 @@ docker compose up --build
 
 ## 使用前需要知道
 
-**当前是无账号体系的本地 / 可信环境工具。** 上传文件会保存到服务端，尚无自动清理或多用户隔离；默认 Docker 端口只绑定本机。需要远程共享时，应先补访问控制并确认文件管理方式。
+**当前是无账号体系的工具。** 上传文件会保存到服务端，尚无自动清理或多用户隔离；本地 `docker compose` 的端口只绑定 127.0.0.1，公网实例（Render）则直接对外开放且无鉴权。任何远程共享都应先补访问控制，并确认文件清理与留存策略。
 
 门控与导出采用补偿线性坐标；Logicle 用于查看，暂不支持在其空间内直接画门。GatingML 当前支持矩形门和多边形门，Boolean / Quadrant 门会被跳过。与其他软件交换模板时，须核对所用补偿、变换与坐标约定。
 

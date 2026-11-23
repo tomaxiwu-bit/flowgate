@@ -1,4 +1,11 @@
-# 部署在线 Demo（HuggingFace Spaces 免费方案）
+# 部署在线 Demo（HuggingFace Spaces）
+
+> **时效说明（2026-11，实测）**：HuggingFace 已调整政策 —— Docker / Gradio Space 的免费
+> `cpu-basic` 实例需要 PRO 订阅（$9/月）。`POST https://huggingface.co/api/repos/create`
+> 返回 `402 Payment Required`，错误原文：
+> `Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription`。
+> 本仓库当前线上实例跑在 Render 免费档：<https://flowgate-gy96.onrender.com>，
+> 配置见根目录 `render.yaml`，步骤见 README 的「部署到公网」。本文保留作参考。
 
 > 目标：让招聘方/导师**不安装任何东西**就能在浏览器打开你的 Demo。
 > 方式：HuggingFace Spaces 免费 Docker Space（公开项目零成本，需 GitHub 账号授权登录 HF）。
@@ -7,7 +14,7 @@
 
 | 平台 | 免费额度 | Docker 支持 | 备注 |
 |---|---|---|---|
-| HuggingFace Spaces | 公开 Space 免费（CPU 基础档） | 是 | 生物信息社区认可度高，简历链接加分 |
+| HuggingFace Spaces | Static 免费；Docker 需 PRO（$9/月） | 是 | 2026-11 实测创建返回 402 |
 | Vercel | Hobby 免费 | 是（单容器） | 无持久卷，后端上传目录会丢 |
 | Render | 免费档休眠 | 是 | 冷启动慢 |
 | 自建 VPS | 花钱 | 是 | 不建议学生期投入 |
