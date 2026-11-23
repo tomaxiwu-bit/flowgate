@@ -43,7 +43,9 @@ flowchart LR
 
 ## 部署到公网（免费档）
 
-仓库带 `render.yaml`，一个 Docker 服务即可上线，不需要信用卡：
+仓库带 `render.yaml`，一个 Docker 服务即可上线，不需要信用卡。
+
+一键入口：<https://render.com/deploy?repo=https://github.com/tomaxiwu-bit/flowgate>
 
 1. 用 GitHub 账号登录 <https://render.com>。
 2. 控制台 New → Blueprint → 选中 `flowgate` 仓库 → Apply。

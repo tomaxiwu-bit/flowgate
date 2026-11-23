@@ -7,6 +7,7 @@ services:
     name: flowgate
     runtime: docker
     dockerfilePath: ./Dockerfile
+    plan: free
     region: singapore
     healthCheckPath: /api/health
     envVars:
