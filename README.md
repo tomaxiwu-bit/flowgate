@@ -4,7 +4,7 @@
 
 *Self-hosted FCS analysis with compensation, interactive gates and exports.*
 
-**在线试用**：<https://flowgate-gy96.onrender.com> · [本地启动](#本地启动并试用) · [公开 FCS 样例](examples/fcs/) · [示例门模板](examples/gatingml/8_color_ICS.xml) · [开发与 API](docs/DEVELOPMENT.md)
+**在线试用**：<https://flowgate-gy96.onrender.com> · [本地启动](#本地启动并试用) · [公开 FCS 样例](examples/fcs/) · [验证与复现](VERIFY.md) · [开发与 API](docs/DEVELOPMENT.md)
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-online-2ea44f?style=flat-square)](https://flowgate-gy96.onrender.com)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -12,7 +12,7 @@
 [![License MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![CI](https://github.com/tomaxiwu-bit/flowgate/actions/workflows/ci.yml/badge.svg)](https://github.com/tomaxiwu-bit/flowgate/actions/workflows/ci.yml)
 
-FlowGate 需要先在本机或可信环境部署。部署后，使用者通过浏览器操作，无需编写分析脚本；也提供维护者按需开启的临时公网实例（见下节）。
+可使用下方 Render 演示入口，或在本机 / 可信环境部署；通过浏览器操作，无需编写分析脚本。演示服务的资源与文件保存范围见“在线试用”。
 
 ## 一份 FCS 可以怎样分析
 
@@ -42,13 +42,13 @@ flowchart LR
 Render 免费实例（512MB 内存 / 0.1 CPU，Singapore）。打开后上传 `examples/fcs/101_DEN084Y5_15_E01_008_clean.fcs`（约 17 MB），可完整走一遍「上传 → 补偿状态 → 画门 → 占比 → 导出」。几点如实说明：
 
 - 免费实例 15 分钟无访问会休眠，下次访问需要约 1 分钟冷启动。
-- 算力只有 0.1 CPU：17 MB 样例上传并解析约需 3–5 分钟（实测 276 秒）；解析完成后，门控评估是秒级（实测 2.4 秒，179,296 事件 / 61.7896%，子门 31,589 / 10.8863%）。
+- 算力只有 0.1 CPU：17 MB 样例上传并解析约需 3–5 分钟（已有验证记录为 276 秒）；解析完成后，门控评估是秒级（已有记录为 2.4 秒，179,296 事件 / 61.7896%，子门 31,589 / 10.8863%）。
 - 没有登录与鉴权，上传文件只留在该实例的临时目录，实例重启即清空。不要上传真实实验数据。
 - 单文件上限 100 MB（受免费档内存限制）。
 
 ## 部署到公网（免费档）
 
-仓库带 `render.yaml`，一个 Docker 服务即可上线，不需要信用卡。
+仓库提供 `render.yaml`，可按 Blueprint 配置为一个 Docker 服务。免费实例的资源和使用限制以 [Render 当前说明](https://render.com/docs/free) 为准。
 
 一键入口：<https://render.com/deploy?repo=https://github.com/tomaxiwu-bit/flowgate>
 

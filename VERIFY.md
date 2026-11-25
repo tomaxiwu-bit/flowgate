@@ -1,106 +1,75 @@
-# 验证 FlowGate：给 CODEX 的任务说明
+# FlowGate 验证与复现
 
-这份文档只有一个目的：让一个**没有上下文**的代理或人，能在 3 分钟内判断
-「flowgate 到底是真工具，还是 AI 画的空壳」。
+[项目首页](README.md) · [本地开发与 API](docs/DEVELOPMENT.md)
 
-## 通道地址
+使用仓库附带的公开 FCS 样例，比较 HTTP 分析链路与直接使用 FlowKit 的本地计数，并核对统计与门模板导出。本文件提供操作步骤及历史基准，便于独立检查结果来源。
 
-| 通道 | 地址 | 说明 |
-|---|---|---|
-| 后端 API | `http://127.0.0.1:8000/api` | FastAPI，OpenAPI 在 `/openapi.json` |
-| 前端页面 | `http://localhost:3000` | Next.js，上传/分析页可用 |
-| 一键验证 | `python tools/verify_e2e.py` | 16 项断言，退出码 0 = 全过 |
+## 先准备本地服务
 
-服务由本机 PowerShell 启动，命令见文末「怎么起服务」。
+需要 Python 3.12、uv，以及前端开发所需的 Node.js 和 npm。获取完整仓库后，在 `flowgate/` 根目录打开终端。
 
-## 一条命令
+终端一，安装后端及验证依赖并启动 API：
 
 ```powershell
-# 后端 venv 里跑，工作目录随意
-& "C:\Users\18519\OneDrive\桌面\github项目\flowgate\backend\.venv\Scripts\python.exe" `
-  "C:\Users\18519\OneDrive\桌面\github项目\flowgate\tools\verify_e2e.py"
+Set-Location backend
+uv sync --locked --group dev
+uv run --locked --group dev uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-期望输出（2026-11-20 实测原文，16/16）：
-
-```
-[PASS] health 200 ok  <- {"status":"ok","version":"0.1.0"}
-[PASS] upload parses sample  <- file_id=8d41a8c3b13c4f8aa2546f2656b40f21
-[PASS] event_count == 290172  <- got 290172
-[PASS] channel_count == 15  <- got 15
-[PASS] spillover compensation applied  <- has_spillover=True applied=True
-[PASS] save 2 gates  <- HTTP 200
-[PASS] parent gate events == 179296  <- got 179296
-[PASS] parent absolute_percent ~ 61.7896  <- got 61.78955929586591
-[PASS] child gate events == 31589  <- got 31589
-[PASS] child relative_percent ~ 17.6184  <- got 17.618351775834373
-[PASS] statistics.csv header + 2 rows  <- HTTP 200, lines=3
-[PASS] gatingml has ISAC v2.0 namespace  <- 6812 bytes
-[PASS] gatingml contains both gates  <- counting gate elements
-[PASS] local total == API total  <- local 290172
-[PASS] local parent gate == API parent gate  <- local 179296 vs api 179296
-[PASS] local child gate == API child gate  <- local 31589 vs api 31589
-
-========================================================
-RESULT: 16/16 checks passed
-========================================================
-```
-
-## 这个脚本在验什么（三条独立证据链）
-
-1. **HTTP 全链路**：上传 → 解析 → 存门 → 在真实事件上评估 → 导出 CSV / GatingML。
-   断言的是具体数字，不是「返回 200」这种敷衍检查。
-2. **绕过 API 的本地重算**：脚本自己用 FlowKit 打开同一个 FCS，读文件内嵌
-   `$SPILLOVER`、构造补偿矩阵、用同一组坐标做 mask 计数，**完全不 import `app.*`**。
-   两条路径必须给出同一个 179296 / 31589。如果后端是假的，这条会立刻炸。
-3. **导出物结构**：CSV 表头与行数、GatingML 的 ISAC 2.0 命名空间与门元素数量。
-
-## 已知干扰项（不要误判成 bug）
-
-- **Windows 下 pytest 会有 16～17 项 ERROR**：根因是 `%TEMP%\pytest-of-18519`
-  目录权限被锁（`PermissionError: [WinError 5]`），fixture 建不出来，
-  与业务代码无关。项目共 72 个测试，Linux CI 全过；Windows 本地 56 通过、
-  16 个卡在临时目录。换可写 TEMP 或 Linux 环境即可复现全绿。
-- **Logicle 显示模式下不能画门**：UI 限制，要切回线性坐标再画。
-- **`$SPILLOVER` 损坏或检测器名对不上**：页面会红字提示「当前为未补偿数据」，
-  比例会偏，这是有意降级而不是静默出错。
-- **17 MB 文件首次解析要十几秒**（有缓存，第二次很快）。
-
-## 验证不了的部分（这才是「能不能给别人用」的真问题）
-
-- **没有在线 Demo**：只有 `localhost:3000` + `127.0.0.1:8000`，仓库里
-  README 写的是「HuggingFace Spaces 即将上线」。任何陌生人点进 GitHub
-  都看不到可用的东西。
-- **没和 FlowJo 对拍**：README 自己列为 TODO。上面 16 项证明的是「自洽」，
-  不是「跟商用软件一致」。准不准还缺一份对照数据。
-- 项目自己警告：无鉴权、无文件清理、上传明文落盘，**不要暴露到公网**。
-
-## 前端首页 500 / 404 的处置（实测踩过）
-
-首页偶发 `500`，日志报 `ENOENT ... .next\server\app\page.js`。原因不是代码，
-而是仓库放在 OneDrive 同步目录里，`.next` 构建产物被同步挪走。处置：
+验证脚本使用的 httpx 包在后端开发依赖中。需要查看浏览器界面时，在另一个从项目根目录打开的终端启动前端：
 
 ```powershell
-# 结束占用 3000 的进程，删缓存，重启 dev
-$c = Get-NetTCPConnection -LocalPort 3000 -State Listen
-Stop-Process -Id $c[0].OwningProcess -Force
-Remove-Item "$repo\frontend\.next" -Recurse -Force
-Start-Process cmd.exe -ArgumentList "/c","npm run dev" -WorkingDirectory "$repo\frontend"
+Set-Location frontend
+npm ci
+npm run dev
 ```
 
-等 30 秒，`GET /` 与 `GET /upload` 都应为 200。长期解法是把仓库移出 OneDrive 目录。
+后端健康检查为 <http://127.0.0.1:8000/api/health>，前端上传页为 <http://localhost:3000/upload>。完整部署方式与当前演示入口见 [README](README.md)。
 
-## 怎么起服务
+## 运行固定样例检查
+
+保持后端运行，在第三个终端回到项目根目录执行：
 
 ```powershell
-$repo = "C:\Users\18519\OneDrive\桌面\github项目\flowgate"
-# 后端
-Start-Process -FilePath "$repo\backend\.venv\Scripts\python.exe" `
-  -ArgumentList "-m","uvicorn","app.main:app","--host","127.0.0.1","--port","8000" `
-  -WorkingDirectory "$repo\backend" -WindowStyle Hidden
-# 前端
-Start-Process -FilePath "cmd.exe" -ArgumentList "/c","npm run dev" `
-  -WorkingDirectory "$repo\frontend" -WindowStyle Hidden
+.\backend\.venv\Scripts\python.exe tools/verify_e2e.py
 ```
 
-等约 30 秒再跑验证脚本。
+也可以显式指定已启动的服务：
+
+```powershell
+.\backend\.venv\Scripts\python.exe tools/verify_e2e.py --base http://127.0.0.1:8000
+```
+
+脚本会上传公开样例并写入测试门数据，请确认 `--base` 指向预期服务。默认读取 `examples/fcs/101_DEN084Y5_15_E01_008_clean.fcs`，预期计数也绑定这份文件；更换输入时需要重新确认基准。
+
+退出码 0 表示本次脚本检查通过；非零时应阅读具体失败项。2026-11-25 本次文档维护没有启动服务或重跑该脚本，下面保留的是原文档中的 2026-11-20 历史结果。
+
+## 历史结果与核对范围
+
+原记录为 16/16 项检查通过，关键数值如下：
+
+| 项目 | 固定样例基准 |
+|---|---:|
+| 总事件 | 290,172 |
+| 通道数 | 15 |
+| 父门事件 | 179,296 |
+| 父门占全样本 | 61.7896% |
+| 子门事件 | 31,589 |
+| 子门占父门 | 17.6184% |
+| 子门占全样本 | 10.8863% |
+
+检查包括三部分：
+
+1. **HTTP 分析链路**：上传、解析、保存两级门、评估、导出 CSV 与 GatingML。
+2. **本地重算**：直接使用 FlowKit 读取同一文件和内嵌补偿矩阵，以相同坐标计算事件掩码；不导入应用的 `app.*` 模块。
+3. **导出结构**：检查 CSV 表头与行数、GatingML 2.0 命名空间与门元素。
+
+这些检查提供针对固定样例的实现一致性证据，没有完成与 FlowJo 等软件的独立对照，也不能替代实验设计与门控判断的复核。
+
+## 常见检查点
+
+- 在浏览器画门时切回线性模式；Logicle 当前用于查看。
+- 核对界面的补偿状态。补偿矩阵损坏或检测器名不匹配时，程序会提示未补偿回退。
+- pytest 无法创建临时目录时，可从后端目录指定一个尚不存在的专用目录：`uv run --locked --group dev pytest -q --basetemp .pytest-tmp-unique`。pytest 会管理该目录，不要指向已有数据目录。
+- 页面返回 404/500 时先查看前端终端日志，确认构建完成且没有多个开发服务共用同一构建目录，再按开发指南重新启动。
+- 本地 API 与公网演示是不同运行环境；公网实例的资源、冷启动和文件保存范围见首页。解析耗时及历史测试数不应当作每次运行的保证。
